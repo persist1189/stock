@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>股票計算器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+            overflow: hidden; /* Prevents the page from scrolling */
+        }
+        .container {
+            max-width: 600px;
+            width: 90%;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            max-height: 80vh; /* Limits the height of the container */
+            overflow-y: auto; /* Adds a scrollbar if content overflows */
+        }
+        input[type="number"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+        }
+        .result p {
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        .tab {
+            cursor: pointer;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border-radius: 5px;
+        }
+        .tab:hover {
+            background-color: #0056b3;
+        }
+        .tab.active {
+            background-color: #0056b3;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .stock-item {
+            margin-bottom: 10px;
+        }
+        .scrollable-content {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .stock-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('calculator')">計算器</div>
+            <div class="tab" onclick="showTab('sell')">賣股票計算</div>
+        </div>
+        
+        <div id="calculator" class="tab-content active">
+            <h1>股票計算器</h1>
+            <label for="price">股票價格：</label>
+            <input type="number" id="price" step="0.01" required>
+            
+            <label for="quantity">股數：</label>
+            <input type="number" id="quantity" required>
+            
+            <button onclick="calculate()">計算</button>
+            
+            <div class="result">
+                <p>總金額：<span id="total"></span></p>
+                <p>轉帳總金額：<span id="adjustedTotalWithFee"></span></p>
+                <p>未折扣手續費：<span id="fee"></span></p>
+                <p>已折扣手續費的20%：<span id="fee20"></span></p>
+                <p>使手續費的20%小於1元的最少股數：<span id="minShares"></span></p>
+            </div>
+        </div>
+        
+        <div id="sell" class="tab-content">
+            <h1>賣股票計算</h1>
+            <div id="stocks" class="scrollable-content"></div>
+            <button onclick="addStock()">新增股票</button>
+            <button onclick="calculateSell()">計算</button>
+            
+            <div class="result">
+                <p>現在的股價金額是：<span id="currentTotal"></span></p>
+                <p>賣出股票收到的錢是：<span id="sellTotal"></span></p>
+                <p>一共獲利是：<span id="profit"></span></p>
+                <p id="suggestedPrices"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let stockCount = 0;
+        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`.tab[onclick="showTab('${tabId}')"]`).classList.add('active');
+        }
+
+        function calculate() {
+            const price = parseFloat(document.getElementById('price').value);
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const feeRate = 0.001425; // 手續費率
+            const total = price * quantity;
+            const fee = total * feeRate;
+            const fee20 = fee * 0.2;
+            const adjustedFee = fee < 20 ? 20 : fee;
+            const adjustedTotalWithFee = Math.ceil(total + adjustedFee);
+
+            // 計算使手續費的20%小於1元的最少股數
+            const minShares = Math.ceil(1 / (price * feeRate * 0.2)) - 1;
+
+            document.getElementById('total').innerText = total.toFixed(2);
+            document.getElementById('adjustedTotalWithFee').innerText = adjustedTotalWithFee
+            document.getElementById('fee').innerText = fee.toFixed(2);
+            document.getElementById('fee20').innerText = fee20.toFixed(2);
+            document.getElementById('minShares').innerText = minShares;
+        }
+
+        function addStock() {
+            stockCount++;
+            const stockLabel = stockCount > 1 ? `股票 ${alphabet[stockCount - 1]}` : '股票';
+            const stockContainer = document.createElement('div');
+            stockContainer.className = 'stock-item';
+            
+            stockContainer.innerHTML = `
+                <div class="stock-label">${stockLabel}</div>
+                <label>現在股票價錢：</label>
+                <input type="number" class="currentPrice" step="0.01" required>
+                <label>平均股票價錢：</label>
+                <input type="number" class="averagePrice" step="0.01" required>
+                <label>擁有股數：</label>
+                <input type="number" class="ownedQuantity" required>
+                <button onclick="removeStock(this)">刪除</button>
+            `;
+            
+            document.getElementById('stocks').appendChild(stockContainer);
+        }
+
+        function removeStock(button) {
+            button.parentElement.remove();
+            stockCount--;
+            updateStockLabels();
+        }
+
+        function updateStockLabels() {
+            const stockItems = document.querySelectorAll('.stock-item');
+            stockItems.forEach((item, index) => {
+                const stockLabel = index > 0 ? `股票 ${alphabet[index]}` : '股票';
+                item.querySelector('.stock-label').innerText = stockLabel;
+            });
+        }
+
+        function calculateSell() {
+            const currentPrices = document.querySelectorAll('.currentPrice');
+            const averagePrices = document.querySelectorAll('.averagePrice');
+            const ownedQuantities = document.querySelectorAll('.ownedQuantity');
+            const taxRate = 0.003; // 證交稅率
+
+            let currentTotal = 0;
+            let sellTotal = 0;
+            let profit = 0;
+            let totalOwnedQuantity = 0;
+            let suggestedPrices = '';
+
+            for (let i = 0; i < currentPrices.length; i++) {
+                const currentPrice = parseFloat(currentPrices[i].value);
+                const averagePrice = parseFloat(averagePrices[i].value);
+                const ownedQuantity = parseInt(ownedQuantities[i].value);
+                
+                currentTotal += currentPrice * ownedQuantity;
+                sellTotal += (currentPrice * ownedQuantity) * (1 - taxRate);
+                profit += (currentPrice - averagePrice) * ownedQuantity;
+                totalOwnedQuantity += ownedQuantity;
+
+                // Suggest price if in loss
+                if (currentPrice < averagePrice) {
+                    const totalCost = averagePrice * ownedQuantity;
+                    const minPrice = totalCost / (ownedQuantity * (1 - taxRate));
+                    const stockLabel = i > 0 ? `股票 ${alphabet[i]}` : '股票';
+                    suggestedPrices += `建議 ${stockLabel} 的賣出價格是 ${minPrice.toFixed(2)}<br>`;
+                }
+            }
+
+            document.getElementById('currentTotal').innerText = currentTotal.toFixed(2);
+            document.getElementById('sellTotal').innerText = sellTotal.toFixed(2);
+            document.getElementById('profit').innerText = profit.toFixed(2);
+            document.getElementById('suggestedPrices').innerHTML = suggestedPrices;
+        }
+    </script>
+</body>
+</html>
